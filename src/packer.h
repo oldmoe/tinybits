@@ -1,12 +1,6 @@
 #ifndef TINY_BITS_PACKER_H
 #define TINY_BITS_PACKER_H
 
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stddef.h> // for size_t
-#include <math.h>
-
 #include "common.h"
 
 typedef struct tiny_bits_packer {
@@ -229,7 +223,7 @@ static inline int pack_negative_infinity(tiny_bits_packer *encoder){
     return 1;
 }
 
-static inline int pack_str(tiny_bits_packer *encoder, char* str, uint32_t str_len, TinyBitsStringEncoding encoding) {
+static inline int pack_str(tiny_bits_packer *encoder, char* str, uint32_t str_len) {
     uint32_t id = 0;
     int found = 0;
     int written = 0;

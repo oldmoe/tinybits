@@ -1,31 +1,16 @@
 #ifndef TINY_BITS_COMMON_H
 #define TINY_BITS_COMMON_H
 
+
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stddef.h> // for size_t
+#include <math.h>
+
+
 #define TB_HASH_SIZE 128
 #define TB_HASH_CACHE_SIZE 256
-
-typedef struct HashEntry {
-    uint32_t hash;          // 32-bit hash from fast_hash_32
-    uint32_t length;
-    uint32_t offset;
-    uint32_t next_index;
-} HashEntry;
-
-typedef struct HashTable {
-    HashEntry* cache; // HASH_SIZE is 2048, use directly or define HASH_SIZE in header
-    uint32_t next_id;
-    uint32_t cache_size;
-    uint32_t cache_pos;
-    uint8_t bins[TB_HASH_SIZE];
-} HashTable;
-
-inline uint32_t fast_hash_32(const char* str, uint16_t len) {
-    uint32_t hash = len;
-    hash = (hash << 16) | (((unsigned char)str[0] << 8) | (unsigned char)str[1]);
-    hash ^= (((unsigned char)str[len-2] << 8) | (unsigned char)str[len-1]);
-    return hash;
-}
-
 #define MAX_BYTES 9
 #define TB_DDP_STR_LEN_MAX 128
 
@@ -57,14 +42,6 @@ inline uint32_t fast_hash_32(const char* str, uint16_t len) {
 #define TB_FEATURE_STRING_DEDUPE    0x01
 #define TB_FEATURE_COMPRESS_FLOATS  0x02
 
-typedef enum {
-    ENC_ASCII = 0,
-    ENC_UTF8 = 1,
-    ENC_UTF16LE = 2,
-    ENC_UTF16BE = 3,
-    // Add other encodings as needed
-} TinyBitsStringEncoding;
-
 static double powers[] = {
     1.0, 
     10.0, 
@@ -80,6 +57,28 @@ static double powers[] = {
     100000000000.0, 
     1000000000000.0
 };
+
+typedef struct HashEntry {
+    uint32_t hash;          // 32-bit hash from fast_hash_32
+    uint32_t length;
+    uint32_t offset;
+    uint32_t next_index;
+} HashEntry;
+
+typedef struct HashTable {
+    HashEntry* cache; // HASH_SIZE is 2048, use directly or define HASH_SIZE in header
+    uint32_t next_id;
+    uint32_t cache_size;
+    uint32_t cache_pos;
+    uint8_t bins[TB_HASH_SIZE];
+} HashTable;
+
+inline uint32_t fast_hash_32(const char* str, uint16_t len) {
+    uint32_t hash = len;
+    hash = (hash << 16) | (((unsigned char)str[0] << 8) | (unsigned char)str[1]);
+    hash ^= (((unsigned char)str[len-2] << 8) | (unsigned char)str[len-1]);
+    return hash;
+}
 
 inline static int encode_varint(uint64_t value, uint8_t* buffer) {
     if (value <= 240) {
