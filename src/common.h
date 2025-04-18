@@ -32,9 +32,10 @@
 #define TB_MAP_LEN 0x0F
 #define TB_ARR_TAG 0x08
 #define TB_ARR_LEN 0x07
+#define TB_SEP_TAG 0x05
 #define TB_EXT_TAG 0x04
-#define TB_NIL_TAG 0x02
 #define TB_BLB_TAG 0x03
+#define TB_NIL_TAG 0x02
 #define TB_TRU_TAG 0x01
 #define TB_FLS_TAG 0x00
 
