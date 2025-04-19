@@ -13,7 +13,7 @@ typedef struct tiny_bits_packer {
     // Add any other encoder-specific state here if needed (e.g., string deduplication table later)
 } tiny_bits_packer;
 
-inline unsigned char *tiny_bits_packer_ensure_capacity(tiny_bits_packer *encoder, size_t needed_size) {
+static inline unsigned char *tiny_bits_packer_ensure_capacity(tiny_bits_packer *encoder, size_t needed_size) {
     if (!encoder) return NULL;
 
     size_t available_space = encoder->capacity - encoder->current_pos;

@@ -1,6 +1,6 @@
 /**
  * TinyBits Amalgamated Header
- * Generated on: Sat Apr 19 06:44:58 PM CEST 2025
+ * Generated on: Sat Apr 19 07:05:26 PM CEST 2025
  */
 
 #ifndef TINY_BITS_H
@@ -81,7 +81,7 @@ typedef struct HashTable {
     uint8_t bins[TB_HASH_SIZE];
 } HashTable;
 
-inline uint32_t fast_hash_32(const char* str, uint16_t len) {
+static inline uint32_t fast_hash_32(const char* str, uint16_t len) {
     uint32_t hash = len;
     hash = (hash << 16) | (((unsigned char)str[0] << 8) | (unsigned char)str[1]);
     hash ^= (((unsigned char)str[len-2] << 8) | (unsigned char)str[len-1]);
@@ -344,7 +344,7 @@ typedef struct tiny_bits_packer {
     // Add any other encoder-specific state here if needed (e.g., string deduplication table later)
 } tiny_bits_packer;
 
-inline unsigned char *tiny_bits_packer_ensure_capacity(tiny_bits_packer *encoder, size_t needed_size) {
+static inline unsigned char *tiny_bits_packer_ensure_capacity(tiny_bits_packer *encoder, size_t needed_size) {
     if (!encoder) return NULL;
 
     size_t available_space = encoder->capacity - encoder->current_pos;

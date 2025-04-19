@@ -74,7 +74,7 @@ typedef struct HashTable {
     uint8_t bins[TB_HASH_SIZE];
 } HashTable;
 
-inline uint32_t fast_hash_32(const char* str, uint16_t len) {
+static inline uint32_t fast_hash_32(const char* str, uint16_t len) {
     uint32_t hash = len;
     hash = (hash << 16) | (((unsigned char)str[0] << 8) | (unsigned char)str[1]);
     hash ^= (((unsigned char)str[len-2] << 8) | (unsigned char)str[len-1]);
