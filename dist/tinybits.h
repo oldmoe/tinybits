@@ -1,6 +1,6 @@
 /**
  * TinyBits Amalgamated Header
- * Generated on: Fri Apr 18 12:09:46 AM CEST 2025
+ * Generated on: Sat Apr 19 06:44:58 PM CEST 2025
  */
 
 #ifndef TINY_BITS_H
@@ -39,9 +39,10 @@
 #define TB_MAP_LEN 0x0F
 #define TB_ARR_TAG 0x08
 #define TB_ARR_LEN 0x07
+#define TB_SEP_TAG 0x05
 #define TB_EXT_TAG 0x04
-#define TB_NIL_TAG 0x02
 #define TB_BLB_TAG 0x03
+#define TB_NIL_TAG 0x02
 #define TB_TRU_TAG 0x01
 #define TB_FLS_TAG 0x00
 
@@ -87,7 +88,7 @@ inline uint32_t fast_hash_32(const char* str, uint16_t len) {
     return hash;
 }
 
-inline static int encode_varint(uint64_t value, uint8_t* buffer) {
+static inline int encode_varint(uint64_t value, uint8_t* buffer) {
     if (value <= 240) {
         buffer[0] = (uint8_t)value;  // 1 byte
         return 1;
@@ -157,7 +158,7 @@ inline static int encode_varint(uint64_t value, uint8_t* buffer) {
     }
 }
 
-inline static int varint_size(uint64_t value){
+static inline int varint_size(uint64_t value){
     if (value < (1ULL << 48)) {  // 253: 6-byte big-endian
         return 7;
     } else if(value  < (1ULL << 52)){
@@ -166,7 +167,7 @@ inline static int varint_size(uint64_t value){
     return 9;
 }
 
-inline static uint64_t decode_varint(const uint8_t* buffer, size_t size, size_t *pos) {
+static inline uint64_t decode_varint(const uint8_t* buffer, size_t size, size_t *pos) {
     uint8_t prefix = buffer[*pos];
     if (prefix <= 240) {
         *pos += 1;
@@ -241,7 +242,7 @@ static inline void *fast_memcpy(unsigned char *ptr1, const char *ptr2, size_t nu
 #include <stddef.h>
 #include <stdint.h>
 
-inline static uint64_t dtoi_bits(double d) {
+static inline uint64_t dtoi_bits(double d) {
     union {
         double d;
         uint64_t u;
@@ -250,7 +251,7 @@ inline static uint64_t dtoi_bits(double d) {
     return converter.u;
 }
 
-inline static double itod_bits(uint64_t u) {
+static inline double itod_bits(uint64_t u) {
     union {
         double d;
         uint64_t u;
@@ -259,7 +260,7 @@ inline static double itod_bits(uint64_t u) {
     return converter.d;
 }
 
-inline static void encode_uint64( uint64_t value, uint8_t *buffer) {
+static inline void encode_uint64( uint64_t value, uint8_t *buffer) {
     buffer[0] = (value >> 56) & 0xFF;
     buffer[1] = (value >> 48) & 0xFF;
     buffer[2] = (value >> 40) & 0xFF;
@@ -270,7 +271,7 @@ inline static void encode_uint64( uint64_t value, uint8_t *buffer) {
     buffer[7] = value & 0xFF;
 }
 
-inline static uint64_t decode_uint64(const uint8_t *buffer) {
+static inline uint64_t decode_uint64(const uint8_t *buffer) {
     return ((uint64_t)buffer[0] << 56) |
            ((uint64_t)buffer[1] << 48) |
            ((uint64_t)buffer[2] << 40) |
@@ -923,4 +924,4 @@ static inline enum tiny_bits_type unpack_value(tiny_bits_unpacker *decoder, tiny
 
 /* End unpacker.h */
 
-#endif /* TINY_BITS_AMALGAMATED_H */
+#endif /* TINY_BIS_H */

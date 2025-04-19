@@ -37,6 +37,6 @@ echo "/* End unpacker.h */" >> "$OUTPUT_FILE"
 echo "" >> "$OUTPUT_FILE"
 
 # End main include guard
-echo "#endif /* TINY_BITS_AMALGAMATED_H */" >> "$OUTPUT_FILE"
+echo "#endif /* TINY_BIS_H */" >> "$OUTPUT_FILE"
 
 echo "Amalgamated header created at $OUTPUT_FILE"
