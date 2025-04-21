@@ -2,7 +2,7 @@
 
 # TinyBits
 
-A compact, efficient binary serialization library designed for performance and small message sizes.
+A compact and efficient binary serialization library designed for performance and small message sizes.
 
 ## Overview
 
