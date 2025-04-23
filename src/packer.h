@@ -27,6 +27,13 @@ static inline unsigned char *tiny_bits_packer_ensure_capacity(tiny_bits_packer *
     return encoder->buffer + encoder->current_pos;
 }
 
+/**
+ * @brief allocates and initializes a new packer
+ * 
+ * @return pointer to new packer instance
+ * 
+ * @note the returned packer object must be freed using tiny_bits_packer_destroy()
+ */
 tiny_bits_packer *tiny_bits_packer_create(size_t initial_capacity, uint8_t features) {
     tiny_bits_packer *encoder = (tiny_bits_packer *)malloc(sizeof(tiny_bits_packer));
     if (!encoder) return NULL;
@@ -62,6 +69,13 @@ tiny_bits_packer *tiny_bits_packer_create(size_t initial_capacity, uint8_t featu
     return encoder;
 }
 
+/**
+ * @brief Resets internal data structure of the packer object
+ * 
+ * @param encoder The packer instance
+ *
+ * @note This function allows for more efficient packing by reusing the same packer object
+ */
 inline void tiny_bits_packer_reset(tiny_bits_packer *encoder) {
     if (!encoder) return;
     encoder->current_pos = 0;  
@@ -73,6 +87,12 @@ inline void tiny_bits_packer_reset(tiny_bits_packer *encoder) {
     
 }
 
+/**
+ * @brief Deallocate the packer object and its internal data structures
+ * 
+ * @param encoder The unpacker instance
+ *
+ */
 void tiny_bits_packer_destroy(tiny_bits_packer *encoder) {
     if (!encoder) return;
     
@@ -305,6 +325,16 @@ static inline int pack_double(tiny_bits_packer *encoder, double val) {
     int written = 0;
     uint8_t *buffer = tiny_bits_packer_ensure_capacity(encoder, 10);
     if (!buffer) return 0;
+    if(isnan(val)){
+      return pack_nan(encoder);
+    } 
+    if(isinf(val)){
+      if(val > 0){
+        return pack_infinity(encoder);
+      } else {
+        return pack_negative_infinity(encoder);
+      }
+    }
     // scaled varint encoding
     if (encoder->features & TB_FEATURE_COMPRESS_FLOATS) {
         double abs_val = fabs(val); ///val >= 0 ? val : -val;

@@ -27,6 +27,7 @@ enum tiny_bits_type {
     TINY_BITS_ERROR     // Parsing error
 };
 
+// value union
 typedef union tiny_bits_value {
     int64_t int_val;    // TINY_BITS_INT
     double double_val;  // TINY_BITS_DOUBLE
@@ -38,6 +39,7 @@ typedef union tiny_bits_value {
     } str_blob_val;
 } tiny_bits_value;
 
+// The unpacker data structure
 typedef struct tiny_bits_unpacker {
     const unsigned char *buffer;  // Input buffer (read-only)
     size_t size;                  // Total size of buffer
@@ -51,6 +53,13 @@ typedef struct tiny_bits_unpacker {
     HashTable dictionary;
 } tiny_bits_unpacker;
 
+/**
+ * @brief allocates and initializes a new unpacker
+ * 
+ * @return pointer to new unpacker instance
+ * 
+ * @note the returned unpacker object must be freed using tiny_bits_unpacker_destroy()
+ */
 tiny_bits_unpacker *tiny_bits_unpacker_create(void) {
 
     tiny_bits_unpacker *decoder = (tiny_bits_unpacker *)malloc(sizeof(tiny_bits_unpacker));
@@ -66,7 +75,18 @@ tiny_bits_unpacker *tiny_bits_unpacker_create(void) {
     return decoder;
 }
 
-void tiny_bits_unpacker_set_buffer(tiny_bits_unpacker *decoder, const unsigned char *buffer, size_t size) {
+/**
+ * @breif Provides a buffer to the unpacker for unpacking
+ * 
+ * @param decoder The unpakcer instance
+ *
+ * @param buffer A pointer to the buffer
+ *
+ * @param size Size of the region to be unpacked
+ *
+ * @note This function implicitly resets the unpacker object so no need to call tiny_bits_unpacker_reset()
+ */
+static inline void tiny_bits_unpacker_set_buffer(tiny_bits_unpacker *decoder, const unsigned char *buffer, size_t size) {
     if (!decoder) return;
     if (!buffer || size < 1) return;
     decoder->buffer = buffer;
@@ -75,12 +95,26 @@ void tiny_bits_unpacker_set_buffer(tiny_bits_unpacker *decoder, const unsigned c
     decoder->strings_count = 0;
 }
 
+/**
+ * @brief Resets internal data structure of the unpacker object
+ * 
+ * @param decoder The unpacker instance
+ *
+ * @note This function is useful if you want to operate on the same buffer again for some reason
+ */
 static inline void tiny_bits_unpacker_reset(tiny_bits_unpacker *decoder) {
     if (!decoder) return;
     decoder->current_pos = 0;
     decoder->strings_count = 0;
 }
 
+
+/**
+ * @brief Deallocate the unpacker object and its internal data structures
+ * 
+ * @param decoder The unpacker instance
+ *
+ */
 void tiny_bits_unpacker_destroy(tiny_bits_unpacker *decoder) {
     if (!decoder) return;
     if (decoder->strings) {
@@ -201,6 +235,45 @@ static inline enum tiny_bits_type _unpack_str(tiny_bits_unpacker *decoder, uint8
         return TINY_BITS_STR;
 }
 
+/**
+ * @brief Unpacks a value and returns its type while setting its value
+ *
+ * @param decoder The unpacker instance
+ * @param[out] value A supplied tiny_bits_value instance
+ * 
+ * @return enum tiny_bits_type
+ *
+ * This is the entry point to unpacking tinybits structures. You keep calling
+ * this method repeatedly until it returns TINY_BITS_FINISHED when it reaches end of buffer
+ * or if it returns TINY_BITS_ERROR if it stumbles on a malformed or unknown structure.
+ *
+ * TINY_BITS_SEP means the current object was fully unpacked, and that there is potentially another one
+ * this is specifically for stream unpacking multiple objects one after the other as they are being recieved 
+ *
+ * The location of the value you need in the value union will depend on the returned type as follows
+ * 
+ * TINY_BITS_TRUE, TINY_BITS_FALSE, TINY_BITS_NULL, TINY_BITS_NAN, TINY_BITS_INF & TINY_BITS_N_INF all
+ * don't set the value, the type itself is sufficient information for client code to reconstruct the value.
+ *
+ * TINY_BITS_INT sets value.int_val
+ *
+ * TINY_BITS_DOUBLE sets value.double_val
+ *
+ * TINY_BITS_ARRAY and TINY_BITS_MAP both set value.length, for TINY_BITS_ARRAY it means the number of entries,
+ * for TINY_BITS_MAP it means the number of key/value pairs. You have to keep calling unpac_value() afterwards to 
+ * get all the members of the stored array/map. Please note that tinybits doesn't do size checks on the elements supplied
+ * during packing of arrays/maps. It is the responsibility of client code to ensure a 3 element array actually packs 3 elements.
+ * 
+ * TINY_BITS_STR & TINY_BITS_BLOB both set the value.str_blob_val struct, which has two members, data, a pointer to the string/blob in the buffer and
+ * length. Since some returned strings might be deduplicated, they will return the same data pointer and length value for their other instances, there is also an id
+ * value in the struct, which will be only set for strings. You can use to quickly determine the state of the strings as follows
+ * 
+ * A positive value means the string is a duplicate of a previous string, speficially a duplicate of the (id-1)th unpacked, deduplicatable string
+ * 
+ * A negative value means the sting is not a duplicate but is deduplicatable
+ *
+ * A zero value means the string is not deduplicatable and no duplicates should be expected (this is a heuristic, as duplicates may still exist)
+ */
 static inline enum tiny_bits_type unpack_value(tiny_bits_unpacker *decoder, tiny_bits_value *value) {
     if (!decoder || !value || decoder->current_pos >= decoder->size) {
         return (decoder && decoder->current_pos >= decoder->size) ? TINY_BITS_FINISHED : TINY_BITS_ERROR;

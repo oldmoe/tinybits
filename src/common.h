@@ -7,7 +7,7 @@
 #include <string.h>
 #include <stddef.h> // for size_t
 #include <math.h>
-
+#include <stdio.h>
 
 #define TB_HASH_SIZE 128
 #define TB_HASH_CACHE_SIZE 256

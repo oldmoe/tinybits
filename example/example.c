@@ -29,8 +29,20 @@ void unpack(tiny_bits_unpacker *unpacker){
         printf("]");           
         break; 
       }
+      case TINY_BITS_NAN: {
+        printf("NaN");
+        break;
+      }
+      case TINY_BITS_INF: {
+        printf("Inf");
+        break;
+      }
+      case TINY_BITS_N_INF: {
+        printf("-Inf");
+        break;
+      }
       case TINY_BITS_DOUBLE: {
-        printf("%f", value.double_val);
+        printf("%g", value.double_val);
         break;
       }
       case TINY_BITS_INT: {
@@ -60,7 +72,7 @@ int main() {
     
     // Add a number key-value pair
     pack_str(packer, "version", 7);
-    pack_double(packer, 1.0);
+    pack_double(packer, 0.2);
     
     // Add a nested array
     pack_str(packer, "features", 8);
