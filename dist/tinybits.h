@@ -1,6 +1,6 @@
 /**
  * TinyBits Amalgamated Header
- * Generated on: Wed Apr 23 06:43:50 PM CEST 2025
+ * Generated on: Wed Apr 23 07:56:08 PM CEST 2025
  */
 
 #ifndef TINY_BITS_H
@@ -434,6 +434,15 @@ void tiny_bits_packer_destroy(tiny_bits_packer *encoder) {
     free(encoder);
 }
 
+/**
+ * @brief Packs an array header into the buffer
+ * 
+ * @param encoder Pointer to the packer instance
+ * @param arr_len Number of elements in the array
+ * @return Number of bytes written, or 0 on error
+ * 
+ * @note This function only writes the array header, not the elements themselves
+ */
 static inline int pack_arr(tiny_bits_packer *encoder, int arr_len){
     int written = 0;
     int needed_size;
@@ -459,6 +468,15 @@ static inline int pack_arr(tiny_bits_packer *encoder, int arr_len){
     return written;
 }
 
+/**
+ * @brief Packs a map header into the buffer
+ * 
+ * @param encoder Pointer to the packer instance
+ * @param map_len Number of key-value pairs in the map
+ * @return Number of bytes written, or 0 on error
+ * 
+ * @note This function only writes the map header, not the key-value pairs themselves
+ */
 static inline int pack_map(tiny_bits_packer *encoder, int map_len){
     int written = 0;
     int needed_size;
@@ -484,6 +502,15 @@ static inline int pack_map(tiny_bits_packer *encoder, int map_len){
     return written;
 }
 
+/**
+ * @brief Packs an integer value into the buffer
+ * 
+ * @param encoder Pointer to the packer instance
+ * @param value The integer value to pack
+ * @return Number of bytes written, or 0 on error
+ * 
+ * @note Uses a compact representation for small values and SQLite4 like integer encoding for larger values
+ */
 static inline int pack_int(tiny_bits_packer *encoder, int64_t value){
     int written = 0;
     int needed_size = 10;
@@ -514,6 +541,12 @@ static inline int pack_int(tiny_bits_packer *encoder, int64_t value){
     return written;
 }
 
+/**
+ * @brief Packs a NULL value into the buffer
+ * 
+ * @param encoder Pointer to the packer instance
+ * @return Number of bytes written, or 0 on error
+ */
 static inline int pack_null(tiny_bits_packer *encoder){
     int needed_size = 1;
     uint8_t *buffer = tiny_bits_packer_ensure_capacity(encoder, needed_size);
@@ -524,6 +557,12 @@ static inline int pack_null(tiny_bits_packer *encoder){
     return 1;
 }
 
+/**
+ * @brief Packs a TRUE boolean value into the buffer
+ * 
+ * @param encoder Pointer to the packer instance
+ * @return Number of bytes written, or 0 on error
+ */
 static inline int pack_true(tiny_bits_packer *encoder){
     int needed_size = 1;
     uint8_t *buffer = tiny_bits_packer_ensure_capacity(encoder, needed_size);
@@ -534,6 +573,12 @@ static inline int pack_true(tiny_bits_packer *encoder){
     return 1;
 }
 
+/**
+ * @brief Packs a FALSE boolean value into the buffer
+ * 
+ * @param encoder Pointer to the packer instance
+ * @return Number of bytes written, or 0 on error
+ */
 static inline int pack_false(tiny_bits_packer *encoder){
     int needed_size = 1;
     uint8_t *buffer = tiny_bits_packer_ensure_capacity(encoder, needed_size);
@@ -544,6 +589,12 @@ static inline int pack_false(tiny_bits_packer *encoder){
     return 1;
 }
 
+/**
+ * @brief Packs a NaN (Not a Number) value into the buffer
+ * 
+ * @param encoder Pointer to the packer instance
+ * @return Number of bytes written, or 0 on error
+ */
 static inline int pack_nan(tiny_bits_packer *encoder){
     int needed_size = 1;
     uint8_t *buffer = tiny_bits_packer_ensure_capacity(encoder, needed_size);
@@ -554,6 +605,12 @@ static inline int pack_nan(tiny_bits_packer *encoder){
     return 1;
 }
 
+/**
+ * @brief Packs a positive infinity value into the buffer
+ * 
+ * @param encoder Pointer to the packer instance
+ * @return Number of bytes written, or 0 on error
+ */
 static inline int pack_infinity(tiny_bits_packer *encoder){
     int needed_size = 1;
     uint8_t *buffer = tiny_bits_packer_ensure_capacity(encoder, needed_size);
@@ -564,6 +621,12 @@ static inline int pack_infinity(tiny_bits_packer *encoder){
     return 1;
 }
 
+/**
+ * @brief Packs a negative infinity value into the buffer
+ * 
+ * @param encoder Pointer to the packer instance
+ * @return Number of bytes written, or 0 on error
+ */
 static inline int pack_negative_infinity(tiny_bits_packer *encoder){
     int needed_size = 1;
     uint8_t *buffer = tiny_bits_packer_ensure_capacity(encoder, needed_size);
@@ -574,6 +637,16 @@ static inline int pack_negative_infinity(tiny_bits_packer *encoder){
     return 1;
 }
 
+/**
+ * @brief Packs a string into the buffer
+ * 
+ * @param encoder Pointer to the packer instance
+ * @param str Pointer to the string data
+ * @param str_len Length of the string in bytes
+ * @return Number of bytes written, or 0 on error
+ * 
+ * @note If string deduplication is enabled, this may store a reference to a previously stored string
+ */
 static inline int pack_str(tiny_bits_packer *encoder, char* str, uint32_t str_len) {
     uint32_t id = 0;
     int found = 0;
@@ -652,6 +725,15 @@ static inline int pack_str(tiny_bits_packer *encoder, char* str, uint32_t str_le
     return written;
 }
 
+/**
+ * @brief Packs a double-precision floating point value into the buffer
+ * 
+ * @param encoder Pointer to the packer instance
+ * @param val The double value to pack
+ * @return Number of bytes written, or 0 on error
+ * 
+ * @note If TB_FEATURE_COMPRESS_FLOATS is enabled, this will use a more compact representation for some values
+ */
 static inline int pack_double(tiny_bits_packer *encoder, double val) {
     int written = 0;
     uint8_t *buffer = tiny_bits_packer_ensure_capacity(encoder, 10);
@@ -697,6 +779,14 @@ static inline int pack_double(tiny_bits_packer *encoder, double val) {
     return written;
 }
 
+/**
+ * @brief Packs a binary blob (byte array) into the buffer
+ * 
+ * @param encoder Pointer to the packer instance
+ * @param blob Pointer to the binary data
+ * @param blob_size Size of the binary data in bytes
+ * @return Number of bytes written, or 0 on error
+ */
 static inline int pack_blob(tiny_bits_packer *encoder, const char* blob, int blob_size){
     int written = 0;
     int needed_size;
