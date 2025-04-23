@@ -13,15 +13,16 @@ enum tiny_bits_type {
     TINY_BITS_MAP,      // length: number of key-value pairs
     TINY_BITS_INT,      // int_val: integer value
     TINY_BITS_DOUBLE,   // double_val: double value
-    TINY_BITS_STR,      // length: byte length of string
-    TINY_BITS_BLOB,     // length: byte length of blob
+    TINY_BITS_STR,      // str_blob_val.length: byte length of string, str_blob_val.data: pointer to string
+    TINY_BITS_BLOB,     // str_blob_val.length: byte length of blob, str_blob_val.data: pointer to blob
     TINY_BITS_TRUE,     // No value
     TINY_BITS_FALSE,    // No value
     TINY_BITS_NULL,     // No value
-    TINY_BITS_NAN,     // No value
-    TINY_BITS_INF,     // No value
-    TINY_BITS_N_INF,     // No value
-    TINY_BITS_EXT,     // No value
+    TINY_BITS_NAN,      // No value
+    TINY_BITS_INF,      // No value
+    TINY_BITS_N_INF,    // No value
+    TINY_BITS_EXT,      // No value
+    TINY_BITS_SEP,      // No balue
     TINY_BITS_FINISHED, // End of buffer
     TINY_BITS_ERROR     // Parsing error
 };
@@ -228,6 +229,10 @@ static inline enum tiny_bits_type unpack_value(tiny_bits_unpacker *decoder, tiny
         return _unpack_arr(decoder, tag, value);
     } else if (tag == TB_BLB_TAG) { // Blob
         return _unpack_blob(decoder, tag, value);
+    } else if (tag == TB_SEP_TAG) {
+        return TINY_BITS_SEP;
+    } else if (tag == TB_EXT_TAG) {
+        return TINY_BITS_EXT;
     } else if (tag == TB_TRU_TAG) {
         return TINY_BITS_TRUE;
     } else if (tag == TB_FLS_TAG) {
