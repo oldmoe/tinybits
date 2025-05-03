@@ -1,7 +1,6 @@
 #ifndef TINY_BITS_COMMON_H
 #define TINY_BITS_COMMON_H
 
-
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,30 +13,37 @@
 #define MAX_BYTES 9
 #define TB_DDP_STR_LEN_MAX 128
 
-#define TB_INT_TAG 0x80
-#define TB_STR_TAG 0x40
-#define TB_STR_LEN 0x1F
-#define TB_REF_TAG 0x60
-#define TB_REF_LEN 0x1F
-#define TB_DBL_TAG 0x20
-#define TB_PFP_TAG 0x20
-#define TB_NFP_TAG 0x30
-#define TB_NAN_TAG 0x2D
-#define TB_INF_TAG 0x3D
-#define TB_NNF_TAG 0x2E
-#define TB_F16_TAG 0x3E
-#define TB_F32_TAG 0x2F
-#define TB_F64_TAG 0x3F
-#define TB_MAP_TAG 0x10
-#define TB_MAP_LEN 0x0F
-#define TB_ARR_TAG 0x08
-#define TB_ARR_LEN 0x07
-#define TB_SEP_TAG 0x05
-#define TB_EXT_TAG 0x04
-#define TB_BLB_TAG 0x03
-#define TB_NIL_TAG 0x02
-#define TB_TRU_TAG 0x01
-#define TB_FLS_TAG 0x00
+// main tags
+#define TB_INT_TAG 0x80     // +/- integer
+#define TB_REF_TAG 0x60     // deduped string
+#define TB_STR_TAG 0x40     // string
+#define TB_DBL_TAG 0x20     // double value
+#define TB_PFP_TAG 0x20     // + compressed double
+#define TB_NFP_TAG 0x30     // - compressed double
+#define TB_NAN_TAG 0x2D     // NaN
+#define TB_INF_TAG 0x3D     // Infinity
+#define TB_NNF_TAG 0x2E     // -Infinity
+#define TB_F16_TAG 0x3E     // f16 
+#define TB_F32_TAG 0x2F     // float (32bit)
+#define TB_F64_TAG 0x3F     // double (64bit)
+#define TB_MAP_TAG 0x10     // map { key: value}
+#define TB_ARR_TAG 0x08     // array [element1, element2]
+#define TB_DTM_TAG 0x07     // datetime
+#define TB_NXT_TAG 0x06     // native extensions (multibyte tags)
+#define TB_SEP_TAG 0x05     // separator (for group deduplication)
+#define TB_EXT_TAG 0x04     // extension (user extentions)
+#define TB_BLB_TAG 0x03     // blob
+#define TB_NIL_TAG 0x02     // NULL
+#define TB_TRU_TAG 0x01     // TRUE
+#define TB_FLS_TAG 0x00     // FALSE
+
+// Length values (for string, map & array)
+#define TB_STR_LEN 0x1F     // max embedded string length
+#define TB_REF_LEN 0x1F     // max embedded reference id
+#define TB_MAP_LEN 0x0F     // max embedded map length
+#define TB_ARR_LEN 0x07     // max embedded array length
+
+// native extensions TR_NXT_TAG
 
 // Feature flags (from encoder)
 #define TB_FEATURE_STRING_DEDUPE    0x01

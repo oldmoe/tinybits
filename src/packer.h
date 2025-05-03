@@ -210,6 +210,25 @@ static inline int pack_int(tiny_bits_packer *encoder, int64_t value){
     return written;
 }
 
+static inline int _pack_tag_only(tiny_bits_packer *encoder, uint8_t tag){
+    uint8_t *buffer = tiny_bits_packer_ensure_capacity(encoder, 1);
+    if (!buffer) return 0; // Handle error
+    buffer[0] = tag;
+    encoder->current_pos += 1;
+    return 1;
+
+}
+
+/**
+ * @brief Packs a separator tag into the buffer
+ * 
+ * @param encoder Pointer to the packer instance
+ * @return Number of bytes written, or 0 on error
+ */
+static inline int pack_separator(tiny_bits_packer *encoder){
+    return _pack_tag_only(encoder, (uint8_t)TB_SEP_TAG);
+}
+
 /**
  * @brief Packs a NULL value into the buffer
  * 
@@ -217,13 +236,7 @@ static inline int pack_int(tiny_bits_packer *encoder, int64_t value){
  * @return Number of bytes written, or 0 on error
  */
 static inline int pack_null(tiny_bits_packer *encoder){
-    int needed_size = 1;
-    uint8_t *buffer = tiny_bits_packer_ensure_capacity(encoder, needed_size);
-    if (!buffer) return 0; // Handle error
-
-    buffer[0] = (uint8_t)TB_NIL_TAG;
-    encoder->current_pos += 1;
-    return 1;
+    return _pack_tag_only(encoder, (uint8_t)TB_NIL_TAG);
 }
 
 /**
@@ -233,13 +246,7 @@ static inline int pack_null(tiny_bits_packer *encoder){
  * @return Number of bytes written, or 0 on error
  */
 static inline int pack_true(tiny_bits_packer *encoder){
-    int needed_size = 1;
-    uint8_t *buffer = tiny_bits_packer_ensure_capacity(encoder, needed_size);
-    if (!buffer) return 0; // Handle error
-
-    buffer[0] = (uint8_t)TB_TRU_TAG;
-    encoder->current_pos += 1;
-    return 1;
+    return _pack_tag_only(encoder, (uint8_t)TB_TRU_TAG);
 }
 
 /**
@@ -249,13 +256,7 @@ static inline int pack_true(tiny_bits_packer *encoder){
  * @return Number of bytes written, or 0 on error
  */
 static inline int pack_false(tiny_bits_packer *encoder){
-    int needed_size = 1;
-    uint8_t *buffer = tiny_bits_packer_ensure_capacity(encoder, needed_size);
-    if (!buffer) return 0; // Handle error
-
-    buffer[0] = (uint8_t)TB_FLS_TAG;
-    encoder->current_pos += 1;
-    return 1;
+    return _pack_tag_only(encoder, (uint8_t)TB_FLS_TAG);
 }
 
 /**
@@ -265,13 +266,7 @@ static inline int pack_false(tiny_bits_packer *encoder){
  * @return Number of bytes written, or 0 on error
  */
 static inline int pack_nan(tiny_bits_packer *encoder){
-    int needed_size = 1;
-    uint8_t *buffer = tiny_bits_packer_ensure_capacity(encoder, needed_size);
-    if (!buffer) return 0; // Handle error
-
-    buffer[0] = (uint8_t)TB_NAN_TAG;
-    encoder->current_pos += 1;
-    return 1;
+    return _pack_tag_only(encoder, (uint8_t)TB_NAN_TAG);
 }
 
 /**
@@ -281,13 +276,7 @@ static inline int pack_nan(tiny_bits_packer *encoder){
  * @return Number of bytes written, or 0 on error
  */
 static inline int pack_infinity(tiny_bits_packer *encoder){
-    int needed_size = 1;
-    uint8_t *buffer = tiny_bits_packer_ensure_capacity(encoder, needed_size);
-    if (!buffer) return 0; // Handle error
-
-    buffer[0] = (uint8_t)TB_INF_TAG;
-    encoder->current_pos += 1;
-    return 1;
+    return _pack_tag_only(encoder, (uint8_t)TB_INF_TAG);
 }
 
 /**
@@ -297,13 +286,7 @@ static inline int pack_infinity(tiny_bits_packer *encoder){
  * @return Number of bytes written, or 0 on error
  */
 static inline int pack_negative_infinity(tiny_bits_packer *encoder){
-    int needed_size = 1;
-    uint8_t *buffer = tiny_bits_packer_ensure_capacity(encoder, needed_size);
-    if (!buffer) return 0; // Handle error
-
-    buffer[0] = (uint8_t)TB_NNF_TAG;
-    encoder->current_pos += 1;
-    return 1;
+    return _pack_tag_only(encoder, (uint8_t)TB_NNF_TAG);
 }
 
 /**
@@ -445,6 +428,29 @@ static inline int pack_double(tiny_bits_packer *encoder, double val) {
     encode_uint64(dtoi_bits(val), buffer + written);
     written += 8;
     encoder->current_pos += written;
+    return written;
+}
+
+/**
+ * @brief Packs a unixtime double-precision floating point value, along with a time zone offset into the buffer
+ * 
+ * @param encoder Pointer to the packer instance
+ * @param val The unixtime double value to pack
+ * @param offset The timezone offset (as a +/- seconds)
+ * @return Number of bytes written, or 0 on error
+ * 
+ */
+static inline int pack_datetime(tiny_bits_packer *encoder, double val, int16_t offset) {
+    int written = 0;
+    uint8_t *buffer = tiny_bits_packer_ensure_capacity(encoder, 11);
+    if (!buffer) return 0;
+    buffer[0] = TB_DTM_TAG;
+    buffer[1] = (int8_t) ((offset % 86400) / (60*15)); // convert seconds to multiples of 15 minutes
+    written += 2;
+    encode_uint64(dtoi_bits(val), buffer + written);
+    written += 8;
+    encoder->current_pos += written;
+    //written += pack_double(encoder, val);
     return written;
 }
 

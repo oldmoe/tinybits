@@ -1,13 +1,12 @@
 /**
  * TinyBits Amalgamated Header
- * Generated on: Wed Apr 23 07:56:08 PM CEST 2025
+ * Generated on: Sat May  3 08:57:46 PM CEST 2025
  */
 
 #ifndef TINY_BITS_H
 #define TINY_BITS_H
 
 /* Begin common.h */
-
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -21,30 +20,37 @@
 #define MAX_BYTES 9
 #define TB_DDP_STR_LEN_MAX 128
 
-#define TB_INT_TAG 0x80
-#define TB_STR_TAG 0x40
-#define TB_STR_LEN 0x1F
-#define TB_REF_TAG 0x60
-#define TB_REF_LEN 0x1F
-#define TB_DBL_TAG 0x20
-#define TB_PFP_TAG 0x20
-#define TB_NFP_TAG 0x30
-#define TB_NAN_TAG 0x2D
-#define TB_INF_TAG 0x3D
-#define TB_NNF_TAG 0x2E
-#define TB_F16_TAG 0x3E
-#define TB_F32_TAG 0x2F
-#define TB_F64_TAG 0x3F
-#define TB_MAP_TAG 0x10
-#define TB_MAP_LEN 0x0F
-#define TB_ARR_TAG 0x08
-#define TB_ARR_LEN 0x07
-#define TB_SEP_TAG 0x05
-#define TB_EXT_TAG 0x04
-#define TB_BLB_TAG 0x03
-#define TB_NIL_TAG 0x02
-#define TB_TRU_TAG 0x01
-#define TB_FLS_TAG 0x00
+// main tags
+#define TB_INT_TAG 0x80     // +/- integer
+#define TB_REF_TAG 0x60     // deduped string
+#define TB_STR_TAG 0x40     // string
+#define TB_DBL_TAG 0x20     // double value
+#define TB_PFP_TAG 0x20     // + compressed double
+#define TB_NFP_TAG 0x30     // - compressed double
+#define TB_NAN_TAG 0x2D     // NaN
+#define TB_INF_TAG 0x3D     // Infinity
+#define TB_NNF_TAG 0x2E     // -Infinity
+#define TB_F16_TAG 0x3E     // f16 
+#define TB_F32_TAG 0x2F     // float (32bit)
+#define TB_F64_TAG 0x3F     // double (64bit)
+#define TB_MAP_TAG 0x10     // map { key: value}
+#define TB_ARR_TAG 0x08     // array [element1, element2]
+#define TB_DTM_TAG 0x07     // datetime
+#define TB_NXT_TAG 0x06     // native extensions (multibyte tags)
+#define TB_SEP_TAG 0x05     // separator (for group deduplication)
+#define TB_EXT_TAG 0x04     // extension (user extentions)
+#define TB_BLB_TAG 0x03     // blob
+#define TB_NIL_TAG 0x02     // NULL
+#define TB_TRU_TAG 0x01     // TRUE
+#define TB_FLS_TAG 0x00     // FALSE
+
+// Length values (for string, map & array)
+#define TB_STR_LEN 0x1F     // max embedded string length
+#define TB_REF_LEN 0x1F     // max embedded reference id
+#define TB_MAP_LEN 0x0F     // max embedded map length
+#define TB_ARR_LEN 0x07     // max embedded array length
+
+// native extensions TR_NXT_TAG
 
 // Feature flags (from encoder)
 #define TB_FEATURE_STRING_DEDUPE    0x01
@@ -541,6 +547,25 @@ static inline int pack_int(tiny_bits_packer *encoder, int64_t value){
     return written;
 }
 
+static inline int _pack_tag_only(tiny_bits_packer *encoder, uint8_t tag){
+    uint8_t *buffer = tiny_bits_packer_ensure_capacity(encoder, 1);
+    if (!buffer) return 0; // Handle error
+    buffer[0] = tag;
+    encoder->current_pos += 1;
+    return 1;
+
+}
+
+/**
+ * @brief Packs a separator tag into the buffer
+ * 
+ * @param encoder Pointer to the packer instance
+ * @return Number of bytes written, or 0 on error
+ */
+static inline int pack_separator(tiny_bits_packer *encoder){
+    return _pack_tag_only(encoder, (uint8_t)TB_SEP_TAG);
+}
+
 /**
  * @brief Packs a NULL value into the buffer
  * 
@@ -548,13 +573,7 @@ static inline int pack_int(tiny_bits_packer *encoder, int64_t value){
  * @return Number of bytes written, or 0 on error
  */
 static inline int pack_null(tiny_bits_packer *encoder){
-    int needed_size = 1;
-    uint8_t *buffer = tiny_bits_packer_ensure_capacity(encoder, needed_size);
-    if (!buffer) return 0; // Handle error
-
-    buffer[0] = (uint8_t)TB_NIL_TAG;
-    encoder->current_pos += 1;
-    return 1;
+    return _pack_tag_only(encoder, (uint8_t)TB_NIL_TAG);
 }
 
 /**
@@ -564,13 +583,7 @@ static inline int pack_null(tiny_bits_packer *encoder){
  * @return Number of bytes written, or 0 on error
  */
 static inline int pack_true(tiny_bits_packer *encoder){
-    int needed_size = 1;
-    uint8_t *buffer = tiny_bits_packer_ensure_capacity(encoder, needed_size);
-    if (!buffer) return 0; // Handle error
-
-    buffer[0] = (uint8_t)TB_TRU_TAG;
-    encoder->current_pos += 1;
-    return 1;
+    return _pack_tag_only(encoder, (uint8_t)TB_TRU_TAG);
 }
 
 /**
@@ -580,13 +593,7 @@ static inline int pack_true(tiny_bits_packer *encoder){
  * @return Number of bytes written, or 0 on error
  */
 static inline int pack_false(tiny_bits_packer *encoder){
-    int needed_size = 1;
-    uint8_t *buffer = tiny_bits_packer_ensure_capacity(encoder, needed_size);
-    if (!buffer) return 0; // Handle error
-
-    buffer[0] = (uint8_t)TB_FLS_TAG;
-    encoder->current_pos += 1;
-    return 1;
+    return _pack_tag_only(encoder, (uint8_t)TB_FLS_TAG);
 }
 
 /**
@@ -596,13 +603,7 @@ static inline int pack_false(tiny_bits_packer *encoder){
  * @return Number of bytes written, or 0 on error
  */
 static inline int pack_nan(tiny_bits_packer *encoder){
-    int needed_size = 1;
-    uint8_t *buffer = tiny_bits_packer_ensure_capacity(encoder, needed_size);
-    if (!buffer) return 0; // Handle error
-
-    buffer[0] = (uint8_t)TB_NAN_TAG;
-    encoder->current_pos += 1;
-    return 1;
+    return _pack_tag_only(encoder, (uint8_t)TB_NAN_TAG);
 }
 
 /**
@@ -612,13 +613,7 @@ static inline int pack_nan(tiny_bits_packer *encoder){
  * @return Number of bytes written, or 0 on error
  */
 static inline int pack_infinity(tiny_bits_packer *encoder){
-    int needed_size = 1;
-    uint8_t *buffer = tiny_bits_packer_ensure_capacity(encoder, needed_size);
-    if (!buffer) return 0; // Handle error
-
-    buffer[0] = (uint8_t)TB_INF_TAG;
-    encoder->current_pos += 1;
-    return 1;
+    return _pack_tag_only(encoder, (uint8_t)TB_INF_TAG);
 }
 
 /**
@@ -628,13 +623,7 @@ static inline int pack_infinity(tiny_bits_packer *encoder){
  * @return Number of bytes written, or 0 on error
  */
 static inline int pack_negative_infinity(tiny_bits_packer *encoder){
-    int needed_size = 1;
-    uint8_t *buffer = tiny_bits_packer_ensure_capacity(encoder, needed_size);
-    if (!buffer) return 0; // Handle error
-
-    buffer[0] = (uint8_t)TB_NNF_TAG;
-    encoder->current_pos += 1;
-    return 1;
+    return _pack_tag_only(encoder, (uint8_t)TB_NNF_TAG);
 }
 
 /**
@@ -780,6 +769,29 @@ static inline int pack_double(tiny_bits_packer *encoder, double val) {
 }
 
 /**
+ * @brief Packs a unixtime double-precision floating point value, along with a time zone offset into the buffer
+ * 
+ * @param encoder Pointer to the packer instance
+ * @param val The unixtime double value to pack
+ * @param offset The timezone offset (as a +/- seconds)
+ * @return Number of bytes written, or 0 on error
+ * 
+ */
+static inline int pack_datetime(tiny_bits_packer *encoder, double val, int16_t offset) {
+    int written = 0;
+    uint8_t *buffer = tiny_bits_packer_ensure_capacity(encoder, 11);
+    if (!buffer) return 0;
+    buffer[0] = TB_DTM_TAG;
+    buffer[1] = (int8_t) ((offset % 86400) / (60*15)); // convert seconds to multiples of 15 minutes
+    written += 2;
+    encode_uint64(dtoi_bits(val), buffer + written);
+    written += 8;
+    encoder->current_pos += written;
+    //written += pack_double(encoder, val);
+    return written;
+}
+
+/**
  * @brief Packs a binary blob (byte array) into the buffer
  * 
  * @param encoder Pointer to the packer instance
@@ -828,7 +840,8 @@ enum tiny_bits_type {
     TINY_BITS_EXT,      // No value
     TINY_BITS_SEP,      // No balue
     TINY_BITS_FINISHED, // End of buffer
-    TINY_BITS_ERROR     // Parsing error
+    TINY_BITS_ERROR,     // Parsing error
+    TINY_BITS_DATETIME   // double_val: double value
 };
 
 // value union
@@ -841,6 +854,10 @@ typedef union tiny_bits_value {
         size_t length;
         int32_t id;
     } str_blob_val;
+    struct {            // TINY_BITS_STR, TINY_BITS_BLOB
+        double unixtime;
+        size_t offset;
+    } datetime_val;   
 } tiny_bits_value;
 
 // The unpacker data structure
@@ -988,6 +1005,19 @@ static inline enum tiny_bits_type _unpack_double(tiny_bits_unpacker *decoder, ui
         return TINY_BITS_DOUBLE;
 }
 
+static inline enum tiny_bits_type _unpack_datetime(tiny_bits_unpacker *decoder, uint8_t tag, tiny_bits_value *value){
+    size_t pos = decoder->current_pos;
+    value->datetime_val.offset = decoder->buffer[pos] * (60*15); // convert offset back to seconds (from multiples of 15 minutes)
+    //uint8_t dbl_tag = decoder->buffer[decoder->current_pos++];
+    //tiny_bits_value dbl_val;
+    //_unpack_double(decoder, dbl_tag, &dbl_val);
+    //value->datetime_val.unixtime = dbl_val.double_val;
+    uint64_t unixtime = decode_uint64(decoder->buffer + pos + 1);
+    value->datetime_val.unixtime = itod_bits(unixtime);
+    decoder->current_pos += 9;
+    return TINY_BITS_DATETIME;
+}
+
 static inline enum tiny_bits_type _unpack_blob(tiny_bits_unpacker *decoder, uint8_t tag, tiny_bits_value *value){
         size_t pos = decoder->current_pos;
         size_t len = decode_varint(decoder->buffer, decoder->size, &pos);
@@ -1084,7 +1114,6 @@ static inline enum tiny_bits_type unpack_value(tiny_bits_unpacker *decoder, tiny
     }
 
     uint8_t tag = decoder->buffer[decoder->current_pos++];
-    //printf("found tag %X\n", tag);
     // Dispatch based on tag
     if ((tag & TB_INT_TAG) == TB_INT_TAG) { // Integers
         return _unpack_int(decoder, tag, value);
@@ -1106,6 +1135,8 @@ static inline enum tiny_bits_type unpack_value(tiny_bits_unpacker *decoder, tiny
         return _unpack_arr(decoder, tag, value);
     } else if (tag == TB_BLB_TAG) { // Blob
         return _unpack_blob(decoder, tag, value);
+    } else if (tag == TB_DTM_TAG) {
+        return _unpack_datetime(decoder, tag, value);
     } else if (tag == TB_SEP_TAG) {
         return TINY_BITS_SEP;
     } else if (tag == TB_EXT_TAG) {
@@ -1115,7 +1146,6 @@ static inline enum tiny_bits_type unpack_value(tiny_bits_unpacker *decoder, tiny
     } else if (tag == TB_FLS_TAG) {
         return TINY_BITS_FALSE;
     }
-    //printf("UNKOWN TAG\n");
     return TINY_BITS_ERROR; // Unknown tag
 }
 

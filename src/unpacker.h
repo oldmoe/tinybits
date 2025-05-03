@@ -24,7 +24,8 @@ enum tiny_bits_type {
     TINY_BITS_EXT,      // No value
     TINY_BITS_SEP,      // No balue
     TINY_BITS_FINISHED, // End of buffer
-    TINY_BITS_ERROR     // Parsing error
+    TINY_BITS_ERROR,     // Parsing error
+    TINY_BITS_DATETIME   // double_val: double value
 };
 
 // value union
@@ -37,6 +38,10 @@ typedef union tiny_bits_value {
         size_t length;
         int32_t id;
     } str_blob_val;
+    struct {            // TINY_BITS_STR, TINY_BITS_BLOB
+        double unixtime;
+        size_t offset;
+    } datetime_val;   
 } tiny_bits_value;
 
 // The unpacker data structure
@@ -184,6 +189,19 @@ static inline enum tiny_bits_type _unpack_double(tiny_bits_unpacker *decoder, ui
         return TINY_BITS_DOUBLE;
 }
 
+static inline enum tiny_bits_type _unpack_datetime(tiny_bits_unpacker *decoder, uint8_t tag, tiny_bits_value *value){
+    size_t pos = decoder->current_pos;
+    value->datetime_val.offset = decoder->buffer[pos] * (60*15); // convert offset back to seconds (from multiples of 15 minutes)
+    //uint8_t dbl_tag = decoder->buffer[decoder->current_pos++];
+    //tiny_bits_value dbl_val;
+    //_unpack_double(decoder, dbl_tag, &dbl_val);
+    //value->datetime_val.unixtime = dbl_val.double_val;
+    uint64_t unixtime = decode_uint64(decoder->buffer + pos + 1);
+    value->datetime_val.unixtime = itod_bits(unixtime);
+    decoder->current_pos += 9;
+    return TINY_BITS_DATETIME;
+}
+
 static inline enum tiny_bits_type _unpack_blob(tiny_bits_unpacker *decoder, uint8_t tag, tiny_bits_value *value){
         size_t pos = decoder->current_pos;
         size_t len = decode_varint(decoder->buffer, decoder->size, &pos);
@@ -280,7 +298,6 @@ static inline enum tiny_bits_type unpack_value(tiny_bits_unpacker *decoder, tiny
     }
 
     uint8_t tag = decoder->buffer[decoder->current_pos++];
-    //printf("found tag %X\n", tag);
     // Dispatch based on tag
     if ((tag & TB_INT_TAG) == TB_INT_TAG) { // Integers
         return _unpack_int(decoder, tag, value);
@@ -302,6 +319,8 @@ static inline enum tiny_bits_type unpack_value(tiny_bits_unpacker *decoder, tiny
         return _unpack_arr(decoder, tag, value);
     } else if (tag == TB_BLB_TAG) { // Blob
         return _unpack_blob(decoder, tag, value);
+    } else if (tag == TB_DTM_TAG) {
+        return _unpack_datetime(decoder, tag, value);
     } else if (tag == TB_SEP_TAG) {
         return TINY_BITS_SEP;
     } else if (tag == TB_EXT_TAG) {
@@ -311,7 +330,6 @@ static inline enum tiny_bits_type unpack_value(tiny_bits_unpacker *decoder, tiny
     } else if (tag == TB_FLS_TAG) {
         return TINY_BITS_FALSE;
     }
-    //printf("UNKOWN TAG\n");
     return TINY_BITS_ERROR; // Unknown tag
 }
 
