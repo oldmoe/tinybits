@@ -82,8 +82,11 @@ typedef struct HashTable {
 
 static inline uint32_t fast_hash_32(const char* str, uint16_t len) {
     uint32_t hash = len;
-    hash = (hash << 16) | (((unsigned char)str[0] << 8) | (unsigned char)str[1]);
-    hash ^= (((unsigned char)str[len-2] << 24) | ((unsigned char)str[len-1] << 16));
+    hash = (hash << 24) | 
+           ((unsigned char)str[0] << 16) | 
+           ((unsigned char)str[1] << 8 ) | 
+           ((unsigned char)str[len-1]);
+    //hash ^= (((unsigned char)str[len-2] << 24) | ((unsigned char)str[len-1] << 16));
     return hash;
 }
 

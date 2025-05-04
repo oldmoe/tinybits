@@ -315,7 +315,7 @@ static inline int pack_str(tiny_bits_packer *encoder, char* str, uint32_t str_le
             HashEntry entry = encoder->encode_table.cache[index - 1];
             if (hash_code == entry.hash 
                 && str_len == entry.length
-                && (str_len <= 4 || (fast_memcmp(str, encoder->buffer + entry.offset, str_len) == 0) )) {
+                && fast_memcmp(str, encoder->buffer + entry.offset, str_len) == 0 ) {
                 id = index - 1;
                 found = 1;
                 break;
