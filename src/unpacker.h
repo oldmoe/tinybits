@@ -236,7 +236,7 @@ static inline enum tiny_bits_type _unpack_str(tiny_bits_unpacker *decoder, uint8
         }
         value->str_blob_val.id = 0;
         // Handle new string (not deduplicated)
-        if(decoder->strings_count < TB_HASH_CACHE_SIZE){
+        if(decoder->strings_count < TB_HASH_CACHE_SIZE && len >= 2 && len <= 128){
             if (decoder->strings_count >= decoder->strings_size) {
                 size_t new_size = decoder->strings_size * 2;
                 void *new_strings = realloc(decoder->strings, new_size * sizeof(*decoder->strings));
