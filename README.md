@@ -215,3 +215,9 @@ When `TB_FEATURE_COMPRESS_FLOATS` is enabled, floating-point values with 12 or f
 - Reuse encoder/decoder instances when processing multiple messages
 - Floating point compression is a little bit expensive
 
+## Todo
+- [ ] Make sure all buffer reads while unpacking don't go beyond the buffer size
+- [ ] Convert the hash entry references to pointers instead of array indexes
+- [ ] Make linked lists ordered by the first character of the referenced string
+- [ ] Experiment with a doubly linked list to choose the shortest path to search
+
