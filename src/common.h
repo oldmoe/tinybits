@@ -169,46 +169,111 @@ static inline int varint_size(uint64_t value){
     return 9;
 }
 
-static inline uint64_t decode_varint(const uint8_t* buffer, size_t size, size_t *pos) {
+static inline int8_t decode_varint(const uint8_t* buffer, size_t size, size_t pos, uint64_t *value) {
+    if(pos >= size) return 0;
+    uint8_t prefix = buffer[pos];
+    if (prefix <= 240) {
+        *value = prefix;
+        return 1;
+    } else if (prefix >= 241 && prefix <= 248) {
+        if (pos + 1 >= size) return 0; // Not enough bytes
+        *value = 240 + 256 * (prefix - 241) + buffer[pos+1];
+        return 2;
+    } else if (prefix == 249){
+        if (pos + 2 >= size) return 0; // Not enough bytes
+        *value = 2288 + 256 * buffer[pos+1] + buffer[pos+2];
+        return 3;
+    } else if (prefix == 250){
+        if (pos + 3 >= size) return 0; // Not enough bytes
+        *value = ((uint64_t)buffer[pos+1] << 16) | ((uint64_t)buffer[pos+2] << 8) | buffer[pos+3];
+        return 4;
+    } else if (prefix == 251){
+        if (pos + 4 >= size) return 0; // Not enough bytes
+        *value = ((uint64_t)buffer[pos+1] << 24) | ((uint64_t)buffer[pos+2] << 16) |
+               ((uint64_t)buffer[pos+3] << 8) | buffer[pos+4];
+        return 5;    
+    } else if (prefix == 252){
+        if (pos + 5 >= size) return 0; // Not enough bytes
+        *value = ((uint64_t)buffer[pos+1] << 32) | ((uint64_t)buffer[pos+2] << 24) |
+               ((uint64_t)buffer[pos+3] << 16) | ((uint64_t)buffer[pos+4] << 8) | buffer[pos+5];
+        return 6;        
+    } else if (prefix == 253){
+        if (pos + 6 >= size) return 0; // Not enough bytes
+        *value = ((uint64_t)buffer[pos+1] << 40) | ((uint64_t)buffer[pos+2] << 32) |
+               ((uint64_t)buffer[pos+3] << 24) | ((uint64_t)buffer[pos+4] << 16) |
+               ((uint64_t)buffer[pos+5] << 8) | buffer[pos+6];
+        return 7;            
+    } else if (prefix == 254){
+        if (pos + 7 >= size) return 0; // Not enough bytes
+        *value = ((uint64_t)buffer[pos+1] << 48) | ((uint64_t)buffer[pos+2] << 40) |
+               ((uint64_t)buffer[pos+3] << 32) | ((uint64_t)buffer[pos+4] << 24) |
+               ((uint64_t)buffer[pos+5] << 16) | ((uint64_t)buffer[pos+6] << 8) | buffer[pos+7];
+        return 8;            
+    } else if (prefix == 255){
+        if (pos + 8 >= size) return 0; // Not enough bytes
+        *value = ((uint64_t)buffer[pos+1] << 56) | ((uint64_t)buffer[pos+2] << 48) |
+               ((uint64_t)buffer[pos+3] << 40) | ((uint64_t)buffer[pos+4] << 32) |
+               ((uint64_t)buffer[pos+5] << 24) | ((uint64_t)buffer[pos+6] << 16) |
+               ((uint64_t)buffer[pos+7] << 8) | buffer[pos+8];
+        return 9;            
+    } else {
+        return 0;
+    }
+
+}
+
+static inline uint64_t decode_varint_old(const uint8_t* buffer, size_t size, size_t *pos) {
+    if (*pos >= size) {
+        return 0; // not enough buffer
+    }
+
     uint8_t prefix = buffer[*pos];
     if (prefix <= 240) {
         *pos += 1;
         return prefix;
     } else if (prefix >= 241 && prefix <= 248) {
+        if (*pos + 1 >= size) return 0; // Not enough bytes
         uint64_t value = 240 + 256 * (prefix - 241) + buffer[*pos+1];
         *pos += 2;
         return value;
     } else if (prefix == 249) {
+        if (*pos + 2 >= size) return 0; // Not enough bytes
         uint64_t value = 2288 + 256 * buffer[*pos+1] + buffer[*pos+2];
         *pos += 3;
         return value;
     } else if (prefix == 250) {
+        if (*pos + 3 >= size) return 0; // Not enough bytes
         uint64_t value = ((uint64_t)buffer[*pos+1] << 16) | ((uint64_t)buffer[*pos+2] << 8) | buffer[*pos+3];
         *pos += 4;
         return value;
     } else if (prefix == 251) {
+        if (*pos + 4 >= size) return 0; // Not enough bytes
         uint64_t value = ((uint64_t)buffer[*pos+1] << 24) | ((uint64_t)buffer[*pos+2] << 16) |
                ((uint64_t)buffer[*pos+3] << 8) | buffer[*pos+4];
         *pos += 5;
         return value;
     } else if (prefix == 252) {
+        if (*pos + 5 >= size) return 0; // Not enough bytes
         uint64_t value = ((uint64_t)buffer[*pos+1] << 32) | ((uint64_t)buffer[*pos+2] << 24) |
                ((uint64_t)buffer[*pos+3] << 16) | ((uint64_t)buffer[*pos+4] << 8) | buffer[*pos+5];
         *pos += 6;
         return value;
     } else if (prefix == 253) {
+        if (*pos + 6 >= size) return 0; // Not enough bytes
         uint64_t value = ((uint64_t)buffer[*pos+1] << 40) | ((uint64_t)buffer[*pos+2] << 32) |
                ((uint64_t)buffer[*pos+3] << 24) | ((uint64_t)buffer[*pos+4] << 16) |
                ((uint64_t)buffer[*pos+5] << 8) | buffer[*pos+6];
         *pos += 7;
         return value;       
     } else if (prefix == 254) {
+        if (*pos + 7 >= size) return 0; // Not enough bytes
         uint64_t value = ((uint64_t)buffer[*pos+1] << 48) | ((uint64_t)buffer[*pos+2] << 40) |
                ((uint64_t)buffer[*pos+3] << 32) | ((uint64_t)buffer[*pos+4] << 24) |
                ((uint64_t)buffer[*pos+5] << 16) | ((uint64_t)buffer[*pos+6] << 8) | buffer[*pos+7];
         *pos += 8;
         return value;       
     } else if (prefix == 255) {
+        if (*pos + 8 >= size) return 0; // Not enough bytes
         uint64_t value = ((uint64_t)buffer[*pos+1] << 56) | ((uint64_t)buffer[*pos+2] << 48) |
                ((uint64_t)buffer[*pos+3] << 40) | ((uint64_t)buffer[*pos+4] << 32) |
                ((uint64_t)buffer[*pos+5] << 24) | ((uint64_t)buffer[*pos+6] << 16) |

@@ -134,17 +134,23 @@ static inline enum tiny_bits_type _unpack_int(tiny_bits_unpacker *decoder, uint8
             value->int_val = tag - 128;
             return TINY_BITS_INT;
         } else if (tag == 248) { // Positive with continuation
-            uint64_t val = decode_varint(decoder->buffer, decoder->size, &pos);
+            uint8_t read;
+            uint64_t val;
+            read = decode_varint(decoder->buffer, decoder->size, pos, &val);
+            if(read == 0) return TINY_BITS_ERROR;
             value->int_val = val + 120;
-            decoder->current_pos = pos;
+            decoder->current_pos += read;
             return TINY_BITS_INT;
         } else if (tag > 248 && tag < 255) { // Small negative (248-254)
             value->int_val = -(tag - 248);
             return TINY_BITS_INT;
         } else { // 255: Negative with continuation
-            uint64_t val = decode_varint(decoder->buffer, decoder->size, &pos);
+            uint8_t read;
+            uint64_t val;
+            read = decode_varint(decoder->buffer, decoder->size, pos, &val);
+            if(read == 0) return TINY_BITS_ERROR;
             value->int_val = -(val + 7);
-            decoder->current_pos = pos;
+            decoder->current_pos += read;
             return TINY_BITS_INT;
         }
 }
@@ -154,8 +160,12 @@ static inline enum tiny_bits_type _unpack_arr(tiny_bits_unpacker *decoder, uint8
         if (tag < 0b00001111) { // Small array (0-30)
             value->length = tag & 0b00000111;
         } else { // Large array
-            value->length = decode_varint(decoder->buffer, decoder->size, &pos) + 7;
-            decoder->current_pos = pos;
+            uint8_t read;
+            uint64_t val;
+            read = decode_varint(decoder->buffer, decoder->size, pos, &val);
+            if(read == 0) return TINY_BITS_ERROR;
+            value->length = val + 7;
+            decoder->current_pos += read;
         }
         return TINY_BITS_ARRAY;
 }
@@ -165,8 +175,12 @@ static inline enum tiny_bits_type _unpack_map(tiny_bits_unpacker *decoder, uint8
         if (tag < 0x1F) { // Small map (0-14)
             value->length = tag & 0x0F;
         } else { // Large map
-            value->length = decode_varint(decoder->buffer, decoder->size, &pos) + 15;
-            decoder->current_pos = pos;
+            uint8_t read;
+            uint64_t val;
+            read = decode_varint(decoder->buffer, decoder->size, pos, &val);
+            if(read == 0) return TINY_BITS_ERROR;
+            value->length = val + 15;
+            decoder->current_pos += read;
         }
         return TINY_BITS_MAP;
 }
@@ -174,28 +188,28 @@ static inline enum tiny_bits_type _unpack_map(tiny_bits_unpacker *decoder, uint8
 static inline enum tiny_bits_type _unpack_double(tiny_bits_unpacker *decoder, uint8_t tag, tiny_bits_value *value){
         size_t pos = decoder->current_pos;
         if (tag == TB_F64_TAG) { // Raw double
+            if(pos + 8 > decoder->size) return TINY_BITS_ERROR;
             uint64_t number = decode_uint64(decoder->buffer + pos);
             value->double_val = itod_bits(number);
             decoder->current_pos += 8;
         } else { // Compressed double
-            uint64_t number = decode_varint(decoder->buffer, decoder->size, &pos);
+            uint8_t read;
+            uint64_t number;
+            read = decode_varint(decoder->buffer, decoder->size, pos, &number);
+            if(read == 0) return TINY_BITS_ERROR;
             int order = (tag & 0x0F); 
             double fractional = (double)number / powers[order];
-            //fractional /= powers[order];
             if(tag & 0x10) fractional = -fractional;        
             value->double_val = fractional;
-            decoder->current_pos = pos;
+            decoder->current_pos += read;
         }
         return TINY_BITS_DOUBLE;
 }
 
 static inline enum tiny_bits_type _unpack_datetime(tiny_bits_unpacker *decoder, uint8_t tag, tiny_bits_value *value){
     size_t pos = decoder->current_pos;
+    if(pos + 8 > decoder->size) return TINY_BITS_ERROR;
     value->datetime_val.offset = decoder->buffer[pos] * (60*15); // convert offset back to seconds (from multiples of 15 minutes)
-    //uint8_t dbl_tag = decoder->buffer[decoder->current_pos++];
-    //tiny_bits_value dbl_val;
-    //_unpack_double(decoder, dbl_tag, &dbl_val);
-    //value->datetime_val.unixtime = dbl_val.double_val;
     uint64_t unixtime = decode_uint64(decoder->buffer + pos + 1);
     value->datetime_val.unixtime = itod_bits(unixtime);
     decoder->current_pos += 9;
@@ -204,10 +218,14 @@ static inline enum tiny_bits_type _unpack_datetime(tiny_bits_unpacker *decoder, 
 
 static inline enum tiny_bits_type _unpack_blob(tiny_bits_unpacker *decoder, uint8_t tag, tiny_bits_value *value){
         size_t pos = decoder->current_pos;
-        size_t len = decode_varint(decoder->buffer, decoder->size, &pos);
+        size_t len;
+        size_t read; 
+        read = decode_varint(decoder->buffer, decoder->size, pos, &len);
+        if(read == 0) return TINY_BITS_ERROR;
+        if((pos + read + len) > decoder->size) return TINY_BITS_ERROR; 
         value->str_blob_val.data =  (const char *)decoder->buffer + pos;
         value->str_blob_val.length = len; 
-        decoder->current_pos = pos + len;
+        decoder->current_pos = pos + read + len;
         return TINY_BITS_BLOB;
 }
 
@@ -216,22 +234,35 @@ static inline enum tiny_bits_type _unpack_str(tiny_bits_unpacker *decoder, uint8
         size_t len;
         if (tag < 0x5F) { // Small string (0-30)
             len = tag & 0x1F;
+            if(pos + len > decoder->size) return TINY_BITS_ERROR;
             value->str_blob_val.data =  (const char *)decoder->buffer + pos;
             value->str_blob_val.length = len; 
-            decoder->current_pos = pos + len;
+            decoder->current_pos += len;
         } else if (tag == 0x5F) { // Large string
-            len = decode_varint(decoder->buffer, decoder->size, &pos) + 31;
+            size_t read;
+            read = decode_varint(decoder->buffer, decoder->size, pos, &len);
+            if(read == 0) return TINY_BITS_ERROR;
+            len += 31;
+            if(pos + read + len > decoder->size) return TINY_BITS_ERROR;
             value->str_blob_val.data =  (const char *)decoder->buffer + pos;
             value->str_blob_val.length = len; 
-            decoder->current_pos = pos + len;
+            decoder->current_pos += (read + len);
         } else { // Deduplicated (small: < 0x7F, large: 0x7F)
-            uint32_t id = (tag < 0x7F) ? (tag & 0x1F) : decode_varint(decoder->buffer, decoder->size, &pos) + 31;
+            size_t id;
+            size_t read;
+            if(tag < 0x7F){
+                id = tag & 0x1F;
+            }else {
+                read = decode_varint(decoder->buffer, decoder->size, pos, &id);
+                if(read == 0) return TINY_BITS_ERROR;
+                id += 31; 
+                decoder->current_pos += read; // Update pos after varint
+            } 
             if (id >= decoder->strings_count) return TINY_BITS_ERROR;
             len = decoder->strings[id].length;
             value->str_blob_val.data = decoder->strings[id].str;
             value->str_blob_val.length = len;
-            value->str_blob_val.id = id+1;
-            decoder->current_pos = pos; // Update pos after varint
+            value->str_blob_val.id = id + 1;
             return TINY_BITS_STR;
         }
         value->str_blob_val.id = 0;

@@ -13,7 +13,8 @@ void unpack(tiny_bits_unpacker *unpacker){
         printf("{");
         for(int i= 0; i < value.length; i++){
           unpack(unpacker); // key
-          printf(": ");
+          //printf(": ");
+          printf(" => ");
           unpack(unpacker); // value
           if(i < value.length - 1) printf(", ");
         }
@@ -64,7 +65,7 @@ int main() {
         TB_FEATURE_STRING_DEDUPE | TB_FEATURE_COMPRESS_FLOATS);
     
     // Pack some values
-    pack_map(packer, 3);
+    pack_map(packer, 4);
     
     // Add a string key-value pair
     pack_str(packer, "name", 4);
@@ -72,7 +73,7 @@ int main() {
     
     // Add a number key-value pair
     pack_str(packer, "version", 7);
-    pack_double(packer, 0.2);
+    pack_double(packer, 0.5);
     
     // Add a nested array
     pack_str(packer, "features", 8);
@@ -80,7 +81,10 @@ int main() {
     pack_str(packer, "compact", 7);
     pack_str(packer, "fast", 4);
     pack_str(packer, "flexible", 8);
+
     
+    pack_str(packer, "users", 5);
+    pack_int(packer, 1234567890);
     // Create unpacker and set buffer
     tiny_bits_unpacker *unpacker = tiny_bits_unpacker_create();
     tiny_bits_unpacker_set_buffer(unpacker, packer->buffer, packer->current_pos);
