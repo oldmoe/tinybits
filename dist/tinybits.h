@@ -1,6 +1,6 @@
 /**
  * TinyBits Amalgamated Header
- * Generated on: Mon May 12 01:40:49 AM CEST 2025
+ * Generated on: Sat 03 Oct 2026 08:15:18 PM CEST
  */
 
 #ifndef TINY_BITS_H
@@ -1128,9 +1128,10 @@ static inline enum tiny_bits_type _unpack_str(tiny_bits_unpacker *decoder, uint8
             if(read == 0) return TINY_BITS_ERROR;
             len += 31;
             if(pos + read + len > decoder->size) return TINY_BITS_ERROR;
-            value->str_blob_val.data =  (const char *)decoder->buffer + pos;
-            value->str_blob_val.length = len; 
             decoder->current_pos += (read + len);
+            pos += read;
+            value->str_blob_val.data =  (const char *)decoder->buffer + pos;
+            value->str_blob_val.length = len;
         } else { // Deduplicated (small: < 0x7F, large: 0x7F)
             size_t id;
             size_t read;
