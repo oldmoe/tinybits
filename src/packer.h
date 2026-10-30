@@ -59,6 +59,7 @@ tiny_bits_packer *tiny_bits_packer_create(size_t initial_capacity, uint8_t featu
         encoder->encode_table.cache_size = TB_HASH_CACHE_SIZE;
         encoder->encode_table.cache_pos = 0;
         encoder->encode_table.next_id = 0;
+        memset(encoder->encode_table.bins, 0, TB_HASH_SIZE * sizeof(uint8_t));
     } else {
         encoder->encode_table.cache = NULL;
         encoder->encode_table.cache_size = 0;

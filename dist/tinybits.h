@@ -1,6 +1,6 @@
 /**
  * TinyBits Amalgamated Header
- * Generated on: Sat 03 Oct 2026 08:15:18 PM CEST
+ * Generated on: Fri 30 Oct 2026 12:29:55 PM CET
  */
 
 #ifndef TINY_BITS_H
@@ -464,6 +464,7 @@ tiny_bits_packer *tiny_bits_packer_create(size_t initial_capacity, uint8_t featu
         encoder->encode_table.cache_size = TB_HASH_CACHE_SIZE;
         encoder->encode_table.cache_pos = 0;
         encoder->encode_table.next_id = 0;
+        memset(encoder->encode_table.bins, 0, TB_HASH_SIZE * sizeof(uint8_t));
     } else {
         encoder->encode_table.cache = NULL;
         encoder->encode_table.cache_size = 0;
@@ -1107,7 +1108,7 @@ static inline enum tiny_bits_type _unpack_blob(tiny_bits_unpacker *decoder, uint
         read = decode_varint(decoder->buffer, decoder->size, pos, &len);
         if(read == 0) return TINY_BITS_ERROR;
         if((pos + read + len) > decoder->size) return TINY_BITS_ERROR; 
-        value->str_blob_val.data =  (const char *)decoder->buffer + pos;
+        value->str_blob_val.data =  (const char *)decoder->buffer + pos + read;
         value->str_blob_val.length = len; 
         decoder->current_pos = pos + read + len;
         return TINY_BITS_BLOB;
