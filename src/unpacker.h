@@ -55,7 +55,8 @@ typedef struct tiny_bits_unpacker {
     } *strings;           // Array of decoded strings
     size_t strings_size;  // Capacity of strings array
     size_t strings_count; // Number of strings stored
-    HashTable dictionary;
+    char *dict;           // copy of the dictionary bytes, strings[0..dict_count) point into it
+    size_t dict_count;    // number of strings entries taken by the dictionary
 } tiny_bits_unpacker;
 
 /**
@@ -77,7 +78,61 @@ tiny_bits_unpacker *tiny_bits_unpacker_create(void) {
         return NULL;
     }
     decoder->strings_count = 0;
+    decoder->dict = NULL;
+    decoder->dict_count = 0;
     return decoder;
+}
+
+/**
+ * @brief Loads an external dictionary of strings, must match the one given to the packer
+ *
+ * @param decoder The unpacker instance
+ * @param strs Array of string pointers (order is significant)
+ * @param lens Array of string lengths
+ * @param count Number of strings
+ * @return 1 on success, 0 on error
+ *
+ * @note Strings are copied. Dictionary strings are returned as dedupe references, with ids 1..n
+ * (see unpack_value), so client code can map them to pre-built objects.
+ */
+static inline int tiny_bits_unpacker_set_dict(tiny_bits_unpacker *decoder, const char **strs, const size_t *lens, size_t count) {
+    if (!decoder) return 0;
+    size_t total = 0;
+    for (size_t i = 0; i < count; i++) total += lens[i];
+    char *dict = (char *)malloc(total ? total : 1);
+    if (!dict) return 0;
+    free(decoder->dict);
+    decoder->dict = dict;
+    decoder->dict_count = 0;
+    decoder->strings_count = 0;
+
+    size_t offset = 0;
+    for (size_t i = 0; i < count && decoder->dict_count < TB_HASH_CACHE_SIZE; i++) {
+        size_t len = lens[i];
+        if (len < 2 || len > 128) continue;
+        int duplicate = 0;
+        for (size_t j = 0; j < decoder->dict_count; j++) {
+            if (decoder->strings[j].length == len && memcmp(decoder->strings[j].str, strs[i], len) == 0) {
+                duplicate = 1;
+                break;
+            }
+        }
+        if (duplicate) continue;
+        if (decoder->dict_count >= decoder->strings_size) {
+            size_t new_size = decoder->strings_size * 2;
+            void *new_strings = realloc(decoder->strings, new_size * sizeof(*decoder->strings));
+            if (!new_strings) return 0;
+            decoder->strings = new_strings;
+            decoder->strings_size = new_size;
+        }
+        memcpy(dict + offset, strs[i], len);
+        decoder->strings[decoder->dict_count].str = dict + offset;
+        decoder->strings[decoder->dict_count].length = len;
+        decoder->dict_count++;
+        offset += len;
+    }
+    decoder->strings_count = decoder->dict_count;
+    return 1;
 }
 
 /**
@@ -97,7 +152,7 @@ static inline void tiny_bits_unpacker_set_buffer(tiny_bits_unpacker *decoder, co
     decoder->buffer = buffer;
     decoder->size = size;
     decoder->current_pos = 0;
-    decoder->strings_count = 0;
+    decoder->strings_count = decoder->dict_count;
 }
 
 /**
@@ -110,7 +165,7 @@ static inline void tiny_bits_unpacker_set_buffer(tiny_bits_unpacker *decoder, co
 static inline void tiny_bits_unpacker_reset(tiny_bits_unpacker *decoder) {
     if (!decoder) return;
     decoder->current_pos = 0;
-    decoder->strings_count = 0;
+    decoder->strings_count = decoder->dict_count;
 }
 
 
@@ -125,6 +180,7 @@ void tiny_bits_unpacker_destroy(tiny_bits_unpacker *decoder) {
     if (decoder->strings) {
         free(decoder->strings);
     }
+    free(decoder->dict);
     free(decoder);
 }
 
@@ -330,39 +386,31 @@ static inline enum tiny_bits_type unpack_value(tiny_bits_unpacker *decoder, tiny
     }
 
     uint8_t tag = decoder->buffer[decoder->current_pos++];
-    // Dispatch based on tag
-    if ((tag & TB_INT_TAG) == TB_INT_TAG) { // Integers
+    // Dispatch on tag ranges, each tag group starts at a power of two
+    if (tag >= TB_INT_TAG) { // Integers
         return _unpack_int(decoder, tag, value);
-    } else if ((tag & TB_STR_TAG) == TB_STR_TAG) { // Strings
+    } else if (tag >= TB_STR_TAG) { // Strings
         return _unpack_str(decoder, tag, value);
-    } else if (tag == TB_NIL_TAG) {
-        return TINY_BITS_NULL;
-    } else if (tag == TB_NAN_TAG) {
-        return TINY_BITS_NAN;
-    } else if (tag == TB_INF_TAG) {
-        return TINY_BITS_INF;
-    } else if (tag == TB_NNF_TAG) {
-        return TINY_BITS_N_INF;
-    } else if ((tag & TB_DBL_TAG) == TB_DBL_TAG) { // Doubles
+    } else if (tag >= TB_DBL_TAG) { // Doubles
+        if (tag == TB_NAN_TAG) return TINY_BITS_NAN;
+        if (tag == TB_INF_TAG) return TINY_BITS_INF;
+        if (tag == TB_NNF_TAG) return TINY_BITS_N_INF;
         return _unpack_double(decoder, tag, value);
-    } else if ((tag & TB_MAP_TAG) == TB_MAP_TAG) { // Maps
+    } else if (tag >= TB_MAP_TAG) { // Maps
         return _unpack_map(decoder, tag, value);
-    } else if ((tag & TB_ARR_TAG) == TB_ARR_TAG) { // Arrays
+    } else if (tag >= TB_ARR_TAG) { // Arrays
         return _unpack_arr(decoder, tag, value);
-    } else if (tag == TB_BLB_TAG) { // Blob
-        return _unpack_blob(decoder, tag, value);
-    } else if (tag == TB_DTM_TAG) {
-        return _unpack_datetime(decoder, tag, value);
-    } else if (tag == TB_SEP_TAG) {
-        return TINY_BITS_SEP;
-    } else if (tag == TB_EXT_TAG) {
-        return TINY_BITS_EXT;
-    } else if (tag == TB_TRU_TAG) {
-        return TINY_BITS_TRUE;
-    } else if (tag == TB_FLS_TAG) {
-        return TINY_BITS_FALSE;
     }
-    return TINY_BITS_ERROR; // Unknown tag
+    switch (tag) {
+        case TB_NIL_TAG: return TINY_BITS_NULL;
+        case TB_TRU_TAG: return TINY_BITS_TRUE;
+        case TB_FLS_TAG: return TINY_BITS_FALSE;
+        case TB_BLB_TAG: return _unpack_blob(decoder, tag, value);
+        case TB_DTM_TAG: return _unpack_datetime(decoder, tag, value);
+        case TB_SEP_TAG: return TINY_BITS_SEP;
+        case TB_EXT_TAG: return TINY_BITS_EXT;
+    }
+    return TINY_BITS_ERROR; // Unknown tag (TB_NXT_TAG)
 }
 
 #endif // TINY_BITS_UNPACKER_H

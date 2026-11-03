@@ -8,7 +8,8 @@
 #include <math.h>
 #include <stdio.h>
 
-#define TB_HASH_SIZE 128
+#define TB_HASH_BITS 7
+#define TB_HASH_SIZE (1 << TB_HASH_BITS)
 #define TB_HASH_CACHE_SIZE 256
 #define MAX_BYTES 9
 #define TB_DDP_STR_LEN_MAX 128
@@ -77,7 +78,7 @@ typedef struct HashTable {
     uint32_t next_id;
     uint32_t cache_size;
     uint32_t cache_pos;
-    uint8_t bins[TB_HASH_SIZE];
+    uint16_t bins[TB_HASH_SIZE]; // 1-based cache index, must hold TB_HASH_CACHE_SIZE
 } HashTable;
 
 static inline uint32_t fast_hash_32(const char* str, uint16_t len) {
@@ -88,6 +89,11 @@ static inline uint32_t fast_hash_32(const char* str, uint16_t len) {
            ((unsigned char)str[len-1]);
     //hash ^= (((unsigned char)str[len-2] << 24) | ((unsigned char)str[len-1] << 16));
     return hash;
+}
+
+// bin index from the top bits of a multiplicative mix (the low bits alone are just the last byte)
+static inline uint32_t tb_hash_bin(uint32_t hash_code) {
+    return (hash_code * 0x9E3779B1u) >> (32 - TB_HASH_BITS);
 }
 
 static inline int encode_varint(uint64_t value, uint8_t* buffer) {
