@@ -249,6 +249,7 @@ static inline enum tiny_bits_type _unpack_double(tiny_bits_unpacker *decoder, ui
             value->double_val = itod_bits(number);
             decoder->current_pos += 8;
         } else { // Compressed double
+            if ((tag & 0x0F) > 12) return TINY_BITS_ERROR; // reserved f16/f32 tags, no such power of ten
             uint8_t read;
             uint64_t number;
             read = decode_varint(decoder->buffer, decoder->size, pos, &number);
@@ -411,6 +412,124 @@ static inline enum tiny_bits_type unpack_value(tiny_bits_unpacker *decoder, tiny
         case TB_EXT_TAG: return TINY_BITS_EXT;
     }
     return TINY_BITS_ERROR; // Unknown tag (TB_NXT_TAG)
+}
+
+// total byte width of a varint, from its first byte
+static inline size_t _tb_varint_width(uint8_t prefix) {
+    if (prefix <= 240) return 1;
+    if (prefix <= 248) return 2;
+    return (size_t)prefix - 246;
+}
+
+// string ids must advance exactly as unpack_value would, so later references line up
+static inline int _tb_skip_register(tiny_bits_unpacker *decoder, size_t pos, size_t len) {
+    if (decoder->strings_count >= TB_HASH_CACHE_SIZE || len < 2 || len > 128) return 1;
+    if (decoder->strings_count >= decoder->strings_size) {
+        size_t new_size = decoder->strings_size * 2;
+        void *new_strings = realloc(decoder->strings, new_size * sizeof(*decoder->strings));
+        if (!new_strings) return 0;
+        decoder->strings = new_strings;
+        decoder->strings_size = new_size;
+    }
+    decoder->strings[decoder->strings_count].str = (char *)decoder->buffer + pos;
+    decoder->strings[decoder->strings_count].length = len;
+    decoder->strings_count++;
+    return 1;
+}
+
+/**
+ * @brief Skips the next value (and everything nested in it) without decoding it
+ *
+ * @param decoder The unpacker instance
+ *
+ * @return 1 on success, 0 on a malformed or truncated buffer
+ *
+ * @note Only tags and lengths are read. Inline strings still take their dedupe ids (offset and length only),
+ * so unpacking can continue after a skip and resolve references into the skipped region.
+ */
+static inline int tiny_bits_unpacker_skip(tiny_bits_unpacker *decoder) {
+    const uint8_t *buf = decoder->buffer;
+    size_t size = decoder->size, pos = decoder->current_pos;
+    size_t needed = 1;
+    while (needed) {
+        if (pos >= size) return 0;
+        uint8_t tag = buf[pos++];
+        needed--;
+        if (tag >= TB_INT_TAG) {
+            if (tag == 248 || tag == 255) {
+                if (pos >= size) return 0;
+                pos += _tb_varint_width(buf[pos]);
+            }
+        } else if (tag >= TB_STR_TAG) {
+            size_t len;
+            if (tag < 0x5F) {
+                len = tag & 0x1F;
+                if (!_tb_skip_register(decoder, pos, len)) return 0;
+                pos += len;
+            } else if (tag == 0x5F) {
+                uint64_t v;
+                size_t read = decode_varint(buf, size, pos, &v);
+                if (!read) return 0;
+                len = v + 31;
+                pos += read;
+                if (pos + len > size) return 0;
+                if (!_tb_skip_register(decoder, pos, len)) return 0;
+                pos += len;
+            } else {
+                size_t id = tag & 0x1F;
+                if (tag == 0x7F) {
+                    uint64_t v;
+                    size_t read = decode_varint(buf, size, pos, &v);
+                    if (!read) return 0;
+                    id = v + 31;
+                    pos += read;
+                }
+                if (id >= decoder->strings_count) return 0;
+            }
+        } else if (tag >= TB_DBL_TAG) {
+            if (tag == TB_F64_TAG) pos += 8;
+            else if (tag != TB_NAN_TAG && tag != TB_INF_TAG && tag != TB_NNF_TAG) {
+                if ((tag & 0x0F) > 12 || pos >= size) return 0;
+                pos += _tb_varint_width(buf[pos]);
+            }
+        } else if (tag >= TB_MAP_TAG) {
+            size_t n = tag & 0x0F;
+            if (tag == 0x1F) {
+                uint64_t v;
+                size_t read = decode_varint(buf, size, pos, &v);
+                if (!read) return 0;
+                n = v + 15;
+                pos += read;
+            }
+            needed += 2 * n;
+        } else if (tag >= TB_ARR_TAG) {
+            size_t n = tag & 0x07;
+            if (tag == 0x0F) {
+                uint64_t v;
+                size_t read = decode_varint(buf, size, pos, &v);
+                if (!read) return 0;
+                n = v + 7;
+                pos += read;
+            }
+            needed += n;
+        } else {
+            switch (tag) {
+                case TB_NIL_TAG: case TB_TRU_TAG: case TB_FLS_TAG: break;
+                case TB_DTM_TAG: pos += 9; break;
+                case TB_BLB_TAG: {
+                    uint64_t len;
+                    size_t read = decode_varint(buf, size, pos, &len);
+                    if (!read || len > size) return 0;
+                    pos += read + len;
+                    break;
+                }
+                default: return 0;
+            }
+        }
+        if (pos > size) return 0;
+    }
+    decoder->current_pos = pos;
+    return 1;
 }
 
 #endif // TINY_BITS_UNPACKER_H
